@@ -7,7 +7,14 @@ Notes on how to check uncertainty:
 3. Hist for each row choose 
 %}
 a = u_a+iVar; r = u_r.*iVar;
-u_iVar = 1./sqrt(1./(a).^2 + 1./(r).^2);
-u_iVar = u_iVar .* (a./abs(a));
+if u_a == 0
+    u_iVar = 1./sqrt(1./(r).^2);
+elseif u_r == 0
+    u_iVar = 1./sqrt(1./(a).^2);
+    u_iVar = u_iVar .* (a./abs(a));
+else
+    u_iVar = 1./sqrt(1./(a).^2 + 1./(r).^2);
+    u_iVar = u_iVar .* (a./abs(a));
+end
 iVar_w_u = iVar + u_iVar.*normU;
 end
