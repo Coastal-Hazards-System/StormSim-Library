@@ -24,6 +24,8 @@ versions = ["V2","V1"];
 [~,AA,~] = fileparts(Filein);
 % Get CHS Identifiers
 A = strsplit(AA,'_');
+% region
+chs_region = A{1,1};
 % Post Processing Type
 PostType = A{1,4};
 % Get File Type
@@ -530,18 +532,67 @@ if length(cData) == 1
         end
     end
 end
+
+%% STERIC WATER LEVEL ADJUSTMENTS  + DATUM SHIFT
+switch chs_region
+    case {'CHS-GLM', 'CHS-GLH'}
+        % Steric Adjustment
+        [cData] = steric_adjustment(cData, Filein);
+        % Datum Adjustment
+        [cData] = datum_adjustment(cData, 176.45,Filein);
 end
+end
+
+%% AUX FUNCTIONS
+function [CHS_Data] = datum_adjustment(CHS_Data, datum_shift, Filein)
+% Find Row For ADCIRC HDF5 File
+ad_bool = contains(Filein, 'ADCIRC');
+
+if any(ad_bool)
+    % Get SSL Header Location
+    ssl_indx = strcmp(CHS_Data.headers, {'Water Elevation'});
+    % Apply Steric Adjustments (StormData)
+    CHS_Data.StormData(:, ssl_indx) = cellfun(@(x) x+datum_shift,...
+        CHS_Data.StormData(:, ssl_indx), 'un', false);
+    % Apply Steric Adjustments (Table_StormData)
+    CHS_Data.Table_StormData.('Water Elevation') = cellfun(@(x) x+datum_shift,...
+        CHS_Data.Table_StormData.('Water Elevation'), 'un', false);
+end
+end
+
+function [CHS_Data] = steric_adjustment(CHS_Data, Filein)
+% Find Row For ADCIRC HDF5 File
+ad_bool = contains(Filein, 'ADCIRC');
+if any(ad_bool)
+    % Grab Storm Group H5 Keys
+    hinfo = h5info(Filein); gNames = {hinfo.Groups.Name}';
+    % Get Steric Adjustments
+    if ischar(h5readatt(Filein, gNames{1}, 'Steric Adjustment'))
+        steric_adj(:, 1) = cellfun(@(x) str2double(h5readatt(Filein, x, 'Steric Adjustment')), gNames, 'un', false);
+    else
+        steric_adj(:, 1) = cellfun(@(x) h5readatt(Filein, x, 'Steric Adjustment'), gNames, 'un', false);
+    end
+    % Get SSL Header Location
+    ssl_indx = strcmp(CHS_Data.headers, {'Water Elevation'});
+    CHS_Data.StormData(:, ssl_indx) = cellfun(@(x, y) x+y,...
+        CHS_Data.StormData(:, ssl_indx), steric_adj, 'un', false);
+    % Apply Steric Adjustments (Table_StormData)
+    CHS_Data.Table_StormData.('Water Elevation') = cellfun(@(x, y) x+y,...
+        CHS_Data.Table_StormData.('Water Elevation'), steric_adj, 'un', false);
+end
+end
+
 
 function expanded = expand_aep_cells(data_row)
 % Expands a 1-x-N cell row where some cols hold vectors and others hold
 % scalars into an nRows-x-N cell array ready for cell2table.
-    n_rows      = length(data_row{end});
-    n_cols      = length(data_row);
-    expanded    = cell(n_rows, n_cols);
-    vec_cols    = cellfun(@(x) length(x) > 1, data_row);
-    scalar_cols = ~vec_cols;
-    for ii = find(vec_cols)
-        expanded(:, ii) = num2cell(data_row{ii});
-    end
-    expanded(:, scalar_cols) = repmat(data_row(scalar_cols), n_rows, 1);
+n_rows      = length(data_row{end});
+n_cols      = length(data_row);
+expanded    = cell(n_rows, n_cols);
+vec_cols    = cellfun(@(x) length(x) > 1, data_row);
+scalar_cols = ~vec_cols;
+for ii = find(vec_cols)
+    expanded(:, ii) = num2cell(data_row{ii});
+end
+expanded(:, scalar_cols) = repmat(data_row(scalar_cols), n_rows, 1);
 end
