@@ -1,4 +1,4 @@
-function [StationList, Sdata] = create_tide_file(station, datum, start_date, outName)
+function [data_table] = create_tide_file(station, datum, start_date, outName)
 % create_tide_file Downloads a Year's worth of tidal predictions from NOAA
 % CO-OPS API. Stations location and data availability can be found  
 % <a href="matlab: web('https://tidesandcurrents.noaa.gov/stations.html?type=Water+Levels')">here</a>.
@@ -12,14 +12,10 @@ function [StationList, Sdata] = create_tide_file(station, datum, start_date, out
 %              ('NAVD').
 %       
 %       start_date: Start date for data download. Must be a datesring with  
-%                   'yyyy-mm-dd HH:MM:SS' format. Time must be in the GMT 
+%                   'yyyyMMdd' format. Time must be in the GMT 
 %                   timezone. Data and product availability can be seen in
 %                   the station's data inventory page.
 %
-%       end_date: End date for data download. Must be a datesring with  
-%                 'yyyy-mm-dd HH:MM:SS' format. Time must be in the GMT 
-%                 timezone. Data and product availability can be seen in
-%                 the station's data inventory page.
 %
 %       outName: Output file name and location (.csv).
 %
@@ -35,63 +31,45 @@ function [StationList, Sdata] = create_tide_file(station, datum, start_date, out
 %       data = create_tide_file('1617760', 'MSL', '1975-01-01 00:00:00', '1976-01-021 00:00:00', outName)
 
 %% INPUTS 
-% Define Station IDs (Only Fill If selectionType == 1)
-config.stationIDs = station;
-% Desired product {'Verified Hourly Height Water Level','Verified 6-Minute Water Level','Verified Monthly Mean Water Level','Preliminary 6-Minute Water Level'};
-config.prod = {'Verified Hourly Height Water Level'};
-% Operational Mode 
-config.opMode = 2;% (1 - Full Record, 2 - Specific Date, 3 - Prediction Only) 
-% Dates of interest (Only if opMode == 2 or 3)
-config.dBeg = datenum(start_date, 'yyyy-mm-dd HH:MM:SS');
-config.dEnd = config.dBeg + datenum(1,0,0,0,0,0);
+% 1. Define your starting date
+initial_stdate = datetime(start_date, 'InputFormat', 'yyyyMMdd');
 
-% Tide File Name (Only if opMode == 3)
-[fpath, fname,~] = fileparts(outName); % Ensure CSV Is Being Written 
-config.tide_file = fullfile(fpath, [fname '.csv']);
+% 2. Define the absolute final date for the year (1 year later, minus 1 day)
+final_endate = initial_stdate + calyears(1) - caldays(1);
 
-%% PULL STATIONS METADATA & DATA INVENTORY
-    disp(['Pulling station ' station ' metadata...']);
-% Scans Station Data Inventory HTML Code To Update Data Availability
-[StationList] = StationList_updater_function(config.stationIDs);
+% 3. Generate start dates stepping by 31 days (column vector)
+stdate = (initial_stdate : caldays(31) : final_endate)';
 
-%% ENSURE 1 YEAR OF DATA IS DOWNLOADED AND AVAILABLE
-% Look Into Hourly Products 
-wl_prod_indx = strcmp(config.prod, StationList.WL_products);
-% Grab Data Ranges
-dates_avail = [StationList.startDate(wl_prod_indx),StationList.endDate(wl_prod_indx)];
-dates_avail = cell2mat(cellfun(@(x) datenum(x(1:end-4),'yyyy-mm-dd HH:MM:SS'), dates_avail, 'un', false));
-% Find What Entry Covers Date Range 
-d_indx = config.dBeg>=dates_avail(:,1) & config.dBeg<=dates_avail(:,2);
-% Try And Make Corrections (If Needed)
-if sum(d_indx) == 0
-    % Prompt User
-    disp(['Could not find a continous year of tidal predictions starting on ' start_date '.' newline 'Trying to find valid date range.']);
-    % Check Product Dt
-    dt = dates_avail(:,2) - dates_avail(:,1);
-    [~,dt_max] = max(dt);
-    % Find The Product With 1 Year
-    dt_indx = find(dt>=datenum(1,0,0,0,0,0) == 1);
-    % Keep The First Entry
-    if isempty(dt_indx)
-        % Could Not Find A Years Worth Of Data
-        error('Verify station data ranges. Could not find a years worth of data.');
-    else
-        dt_indx = dt_indx(dt_max);
-        % End Date
-        config.dEnd = dates_avail(dt_indx,2);
-        config.dBeg = config.dEnd - datenum(1,0,0,0,0,0);
-        disp(['New date range is: ' datestr(config.dBeg,'yyyy-mmm-dd HH:MM:SS') ' - ' datestr(config.dEnd,'yyyy-mmm-dd HH:MM:SS')]);
-    end
+% 4. Generate end dates (start date + 30 days = 31 total days per pull)
+endate = stdate + caldays(30);
+
+% 5. Cap the final end date so it doesn't overshoot the 1-year mark
+endate = min(endate, final_endate);
+
+% 6. (Optional) Convert back to strings if your data API requires text inputs
+stdate_str = string(stdate, 'yyyyMMdd');
+endate_str = string(endate, 'yyyyMMdd');
+
+
+
+opts = weboptions("Timeout",300);
+data_table = [];
+for kk = 1:length(endate_str)
+
+
+    url_pth =['https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date='...
+        char(stdate_str(kk)) '&end_date=' char(endate_str(kk)) '&station=' station '&product=predictions&datum=' datum '&time_zone=gmt&units=metric&format=csv'];
+    data = webread(url_pth, opts);
+    data_table = [data_table;data];
 end
-disp(['Requested data is available...'  newline 'Downloading hourly tidal predictions for: ' StationList.name ' (' StationList.id ')...']);
-%% DOWNLOAD/LOAD DATA FOR STATIONS
-% Download Specified Product @ Specified Datum (Only supports MSL or NAVD88)
-[Sdata,notFound] = WL_downloader_V2({StationList.id},StationList, datum, config.prod,config.opMode,config.dBeg,config.dEnd);
+
+target_date = (initial_stdate : hours(1) : final_endate)';
+
+hourly_tide = interp1(data_table.DateTime, data_table.Prediction, target_date);
+
+data_table.Properties.VariableNames = {'Date','Prediction [m]'};
 
 %% CREATE TIDAL FILE (MEANT FOR 1 STATION)
 % Parse Tidal File
-data = [[{'Date'},{'Prediction [m]'}];cellstr(datestr(Sdata.TP.DateTime,'mm-dd-yyyy HH:MM')),...
-    num2cell(Sdata.TP.Prediction)];
-% Write Tidal File
-writecell(data,config.tide_file);
+writetable(data_table,outName);
 end
