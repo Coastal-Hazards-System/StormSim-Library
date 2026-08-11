@@ -12,15 +12,15 @@ function data_out = stormsim_pros_frequency_base(config, structure, data_in, out
     config.compute_q_vol = 0; % Force Q vol to 0
     
     crest_elev = structure.crest_elevation;
-    toe_elev   = structure.toe_elevation;
+    toe_elev   = abs(structure.toe_elevation);
     
     % Berm Logic
     if config.add_berm
-        berm_elev  = structure.berm_elevation;
+        berm_elev  = abs(structure.berm_elevation);
         berm_width = structure.berm_width;
         berm_slope = structure.berm_slope;
     else
-        berm_elev  = structure.toe_elevation;
+        berm_elev  = abs(structure.toe_elevation);
         berm_width = 0;
         berm_slope = 1; 
     end
@@ -103,6 +103,10 @@ function data_out = stormsim_pros_frequency_base(config, structure, data_in, out
                                cellfun(@(a, b, c) floodwall_nappe_response(a, b, c, hw, rho_w), ...
                                SWL, Hm0, q, 'UniformOutput', false);
                        end
+                        eb1_fields = fieldnames(Resp.(field));
+                        for gg = 1:length(eb1_fields)
+                            Resp.(field).(eb1_fields{gg}) = cell2mat(Resp.(field).(eb1_fields{gg})); 
+                        end
                    end
                case 4 % PROS-EB2 (Compute All PSE Responses As EB2)
                    % Grab Uncertainty                    
