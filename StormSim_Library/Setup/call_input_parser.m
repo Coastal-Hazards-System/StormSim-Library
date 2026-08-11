@@ -337,10 +337,13 @@ config.tide_std = 0; % Tidal std , not implemented
 % This helps toggle print outs
 config.print_progress = true;
 % Hide Berms Until Conceptual Models Are Set
-config.add_berm = 0;
-config.berm_slope = 1;
-config.berm_width = 0;
-config.berm_elevation = 0;
+switch config.struc_type
+    case {1,3} % Levee, Rubblemounds
+        config.add_toe_berm = 0;
+        config.berm_seaward_slope = 1;
+        config.berm_crest_width = 0;
+        config.berm_crest_elevation = 0;
+end
 
 %% RESPONSES UNCERTAINTIES
 uData = readcell('primary_responses_epistemic_uncertainties.txt');
