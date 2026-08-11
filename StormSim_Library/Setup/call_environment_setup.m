@@ -41,7 +41,7 @@ if ~isfield(config, 'sp_ID')
 else
     spID = config.sp_ID;
 end
-region_list = {'CHS-TX','CHS-SA','CHS-PR','CHS-NA','CHS-GoM','CHS-LA','CHS-GLMH'}; % Regions With TC Files
+region_list = {'CHS-TX','CHS-SA','CHS-PR','CHS-NA','CHS-GoM','CHS-LA','CHS-GLM', 'CHS-GLH','CHS-S2G'}; % Regions With TC Files
 %% VOID SWITCHES WHEN NEEDED
 % Safeguard For Unssuported Responses For Each Structure Type
 switch struc_type
@@ -211,7 +211,7 @@ if exist(config.chs_dependencies,'dir') && ismember(chs_region,region_list)
             adcirc_node_id = SPs(SPs(:,1) == spID, 2);
             % Find Correct Row ID For Bias & Uncertainty
             bias_indx = find(staID(:,2) == adcirc_node_id); % Row INdex For Bias And Uncertainty
-        case {'CHS-TX','CHS-SA','CHS-PR','CHS-NA','CHS-GoM', 'CHS-GLMH'}
+        case {'CHS-TX','CHS-SA','CHS-PR','CHS-NA','CHS-GoM', 'CHS-GLM', 'CHS-GLH'}
             % Define Load Cases
             load_cases = {'nodeID','staID'};
             % Grab File Names
