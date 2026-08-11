@@ -17,7 +17,6 @@ calc_q = config.compute_q;
 calc_q_vol = config.compute_q_vol; % Permanently set to 0 for FB
 calc_dd = config.compute_damaging_depth;
 calc_dd_ks = config.compute_damaging_depth_Ks;
-calc_dd_slope = config.compute_damaging_depth_slope;
 calc_p1 = config.compute_p1;
 calc_p2_p3 = config.compute_p2_p3;
 calc_nappe = config.compute_nappe;
@@ -61,21 +60,22 @@ crest_elev = structure.crest_elevation;
 crest_width = structure.crest_width;
 % Define Structure Toe Elevation (<0 below datum zero)
 toe_elev = abs(structure.toe_elevation); % Flip convention
-if config.add_berm
+if config.add_toe_berm
     % Berm Elevation (<0 Below Datum Zero)
-    berm_elev = abs(structure.berm_elevation); %
+    berm_elev = abs(structure.berm_crest_elevation); %
     % Berm Width
-    berm_width = structure.berm_width;
+    berm_width = structure.berm_crest_width;
     % Berm Slope
-    berm_slope = structure.berm_slope;
+    berm_slope_tana = 1./structure.berm_seaward_slope;
 else
     % Berm Elevation (<0 Below Datum Zero)
     berm_elev = abs(toe_elev); % This Translates to h == hb
     % Berm Width
     berm_width = 0;
     % Berm Slope
-    berm_slope = 1;  % Can't set to 0, Will cause 1/0 in Goda Pressure Calcs
+    berm_slope_tana= 1;% Can't set to 0, Will cause 1/0 in Goda Pressure Calcs
 end
+offshore_slope_tana = 1./structure.offshore_slope;
 % Rubblemound Fields
 switch struc_type
     case 4
@@ -92,7 +92,7 @@ switch struc_type
         P = structure.cem_P;
     case  2
         wall_bottom_elev = abs(structure.wall_bottom_elevation);
-        hw = wall_bottom_elev + crest_elev;
+        hw = crest_elev - wall_bottom_elev;
         toe_elev = wall_bottom_elev;
         P=0;
 end
@@ -108,9 +108,9 @@ end
 % Get Slopes
 if ismember(struc_type, [1, 3, 4])
     % Seaside Slope (cot(alpha))
-    slope = structure.seaside_slope;
+    mound_seaside_slope_cota = structure.seaside_slope;
     % Leeside Slope
-    slope_lee = structure.leeside_slope;
+    mound_leeside_slope_cota = structure.leeside_slope;
 end
 
 %% GET FORCING FIELDS
@@ -138,6 +138,8 @@ hb = cellfun(@(x) x - berm_elev, SWL,'un',false);
 Tm = cellfun(@(x) x./1.2,Tp,'un',false); % 
 % Compute Zeroth Moment Spectral Wave Period
 Tm10 = cellfun(@(x) x./1.1,Tp,'un',false); % 
+% Compute Ts
+Ts = Tp; % Assuming narrow spectrat Ts~Tp
 
 %% COMPUTE STRUCTURE RESPONSE
 % Intialize LCBW Flag
@@ -162,14 +164,14 @@ if no_resp~=0
             if calc_p1 == 1 || calc_p2_p3 == 1
                 % P1
                 Resp.p1 = cellfun(@(a, b, c, d) goda_forces_on_vertical_p1(a, b, 1.8,...
-                    0, c, d, berm_width, berm_slope, rho_w, g, SPdepth, calc_dd_slope), Hm0, Tm10, h, hb, 'un', false);
+                    0, c, d, berm_width, rho_w, g, offshore_slope_tana, berm_slope_tana), Hm0, Ts, h, hb, 'un', false);
             end
             %
             if calc_p2_p3 == 1
                 % Compute P2 & P3 Wall Pressures (Plots)
                 [Resp.p2dyn, Resp.p2sta, Resp.p2total,...
                     Resp.p3dyn, Resp.p3sta, Resp.p3total, Resp.pu] = cellfun(@(a, b, c, d, e, f) goda_forces_on_vertical_p2p3(a, b, 1.8,...
-                    0, c, d, e, hw, f, rho_w, g), Hm0, Tm10, h, hb, Rc, Resp.p1, 'un', false);
+                    0, c, d, e, hw, f, rho_w, g), Hm0, Ts, h, hb, Rc, Resp.p1, 'un', false);
             end
             %
             if calc_nappe == 1
@@ -181,7 +183,7 @@ if no_resp~=0
             end
         case {1,3,4} % Levees & Rubblemound & LCBW
             % Reformat Slope If Needed
-            slope_aux = cellfun(@(y) repmat(slope, size(y)), SWL, 'un', false);
+            slope_aux = cellfun(@(y) repmat(mound_seaside_slope_cota, size(y)), SWL, 'un', false);
             % Compute runup & Overtopping
             if calc_r2p == 1 || calc_q == 1 || calc_q_vol == 1
                 [Resp.R2p, Resp.R2p_SWL, Resp.q, ~, Resp.q_wave_ot]=cellfun(@(a, b, c, d, e,f) Eurotop_r2p_q_Final(a, b, c, d,...
@@ -194,7 +196,7 @@ if no_resp~=0
                 % Dn50 Seaside (Melby - Momentum Flux)
                 if calc_dn50_ss == 1
                     [Resp.Dn50] = cellfun(@(a, b, c, d) melby_Dn50_seaside_stability(a, b, c,...
-                        duration, slope, delta, P, S, g, emp_coeff.km1, emp_coeff.km2, d),...
+                        duration, mound_seaside_slope_cota, delta, P, S, g, emp_coeff.km1, emp_coeff.km2, d),...
                         Hm0, Tm, h, Rc,'un',false);
                     % Compute Damage When Structure Is Submerged
                    if calc_dn50_submerged == 1
@@ -208,7 +210,7 @@ if no_resp~=0
                     %
                     [Resp.Dn50_Lee] = cellfun(@(a,b,c,d,e) ...
                         van_gent_Dn50_leeside_stability(S_ls, a, b, c, d,...
-                        crest_width,slope, slope_lee, duration, delta, g,...
+                        crest_width,mound_seaside_slope_cota, mound_leeside_slope_cota, duration, delta, g,...
                         emp_coeff.k_ls1, emp_coeff.k_ls2, e.gamma_f),...
                         Hm0, Tm10, Tm, Rc, gammas,'un',false);
                     % Compute Damage When Structure Is Submerged
@@ -238,12 +240,14 @@ if no_resp~=0
             end
     end
     if calc_wave_transmission == 1
-        if exist('slope', 'var')
-            tana=1/slope;
-        else
-            tana=0;
+        if exist('mound_seaside_slope_cota', 'var')
+            seward_slope_tana=1/mound_seaside_slope_cota;
+        elseif exist('berm_slope_tana', 'var')
+            seward_slope_tana=berm_slope_tana;
+        else 
+            seward_slope_tana = 0;
         end
-        [Kt] = cellfun(@(a,b,c) eurotop_wave_transmission(a,b,c,crest_width,tana,g),Hm0,Tp,Rc,'un',false);
+        [Kt] = cellfun(@(a,b,c) eurotop_wave_transmission(a,b,c,crest_width,seward_slope_tana,g),Hm0,Tp,Rc,'un',false);
         % Compute Transmitted Wave
         switch workflow
             case {1,4} % PROS
@@ -254,7 +258,7 @@ if no_resp~=0
     end
     % Damaging Depth Response
     if calc_dd == 1
-        [Resp.DamDepthElev, Resp.DamDepth]= cellfun(@(x, y, z) damaging_depth(x, y, z, SPdepth, g, calc_dd_ks, calc_dd_slope), SWL, Hm0, Tp, 'un', false);
+        [Resp.DamDepthElev, Resp.DamDepth]= cellfun(@(x, y, z) damaging_depth(x, y, z, SPdepth, g, calc_dd_ks, offshore_slope_tana), SWL, Hm0, Tp, 'un', false);
     end
     % Compute Overtopping Volume
     if calc_q_vol == 1 && length(Resp.q{1}(:,1)) > 1

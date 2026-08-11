@@ -1,4 +1,4 @@
-function [p1dyn]=goda_forces_on_vertical_p1(Hm0,Tp,design_scale,beta,hs,d,Bm,m,rho_w,g,SPdepth,tanbeta)
+function [p1dyn]=goda_forces_on_vertical_p1(Hm0,Ts,design_scale,beta,hs,d,Bm, rho_w, g, offshore_slope_tana, berm_slope_tana)
 %{
 Note - inputs to the function are in metric and are switched at the beginning of the code to imperial. 
 Output is also in metric. 
@@ -14,16 +14,15 @@ account for depth induced wave breaking. Breaking waves by severe wave condition
 
 Input Definitions: 
     Hm0     = significant wave height, ft
-    Tp      = peak wave period, s
+    Ts      = peak wave period, s
     beta    = wave obliquity, degrees
     hs      = seaward depth, ft
     d       = water depth from top of berm, ft
     B       = width of caisson, ft    
     gamma_c = specific weight of caisson, pcf
     Bm      = berm width, ft
-    m       = cotangent of slope of berm   
-    SPdepth = savepoint depth
-    tanbeta = Seabed slope
+    berm_slope_tana       = Seaward slope of toe berm (tana)   
+    offshore_slope_tana = Seabed slope (tana)
 
 Output Definitions:
     p1dyn = total pressure at still water level
@@ -57,11 +56,10 @@ Comments from Jeff
 %% VECTORIZE INPUTS 
 data_dims = size(Hm0);
 Hm0 = Hm0(:)*3.2808; % ALS changed to imperial 7/28
-Tp = Tp(:);
+Ts = Ts(:);
 beta = beta(:);
 hs = hs(:)*3.2808; % ALS changed to imperial 7/28
 d = d(:)*3.2808; % ALS changed to imperial 7/28
-SPdepth=SPdepth(:)*3.2808; % ALS added 7/28
  Bm=Bm(:)*3.2808;
 rho_w = rho_w*0.062428;
 g=g(:)*3.28084; 
@@ -69,14 +67,8 @@ g=g(:)*3.28084;
 %%  PREPROCESSING
 % Height between SWL and top of caisson (hc)
 % hc = hw-hs;
-% Initialize hb
-hb = zeros(size(hs));
-% Compute Berm "toe" Distance From Wall
-b_dist = m*(hs-d)+Bm*3.2808;
-% Compute Berm Heigth At 5*Hm0
-h_p = hs - (5*Hm0)/m;
 % Negative Water Col Failsafe
-hs(hs<0) = 0; d(d<0)=0; h_p(h_p<0) = 0;
+hs(hs<0) = 0; d(d<0)=0; 
 % lambda coefficients - Vertical Wall
 lambda1 = 1; % More Cases Will Be Added In The Future
 lambda2 = 1;
@@ -84,27 +76,13 @@ lambda2 = 1;
 gamma_w = rho_w.*g/32.17405; % Specific weight of water, pcf % ALS changed to imperial 7/28
 
 %% DEPTH LIMITATION 
-Ts = Tp; %note that Ts=0.93*Tp for Jonswap with gamma=3.3 but approaches Tp as gamma 
+%note that Ts=0.93*Tp for Jonswap with gamma=3.3 but approaches Tp as gamma 
 % increases (spectrum becomes narrower).  So here we assume narrow spectra to be conservative.
-% Deep Water Wave Length 
-Lo = g*Ts.^2/2/pi;
-% Compute maximum significant wave height in the surf zone (Depth Limitation)
-HbonLo(:, 1) = 0.17*(1-exp(-1.5*pi*SPdepth/Lo*(1+15*tanbeta^(4/3)))); %Goda, 1995
-Hb = HbonLo.*Lo;
-% Keep Smallest 
-H_design = min(Hb, Hm0.*design_scale, "omitnan");
-
-%% COMPUTE WATER COL @ 5*Hm0 (hb)
-% 5*Hm0 Resides On Top Of Berm
-hb(5*Hm0<Bm) = d(5*Hm0<Bm);
-% 5*Hm0 Resides On Outside Of Berm - Assume Flat Depth Beyond Toe
-hb(5*Hm0>b_dist) = hs(5*Hm0>b_dist);
-% 5*Hm0 Resides On Berm Slope
-hb(Bm<5*Hm0 & 5*Hm0<b_dist) = h_p(Bm<5*Hm0 & 5*Hm0<b_dist);
+[H_design, hb]=goda_Hmax(Hm0,Ts,design_scale,hs,d,Bm,berm_slope_tana,offshore_slope_tana);
 
 %% COMPUTE WAVE NUMBER
 % Wave length
-[kp,~,~]=wavnum1_VG(Tp,d,g); % 1./ft
+[kp,~,~]=wavnum1_VG(Ts,d,g); % 1./ft
 kp_hs = kp.*hs; % k_p .* h_s, unitless
 
 %% COMPUTE ALPHA'S
