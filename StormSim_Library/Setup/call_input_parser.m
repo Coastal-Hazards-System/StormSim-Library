@@ -235,8 +235,10 @@ if isempty(ss_storm) && strcmp(data_case, 'storm_data')
     config.chs_files_2_convert = cell(0, 2);
     % Try To Find Savepoint ID On Filename
     if contains(fname, {'SP'})
-        sp_id = strsplit(fname, {'_', 'SP'});
-        config.sp_ID = str2double(sp_id{end});
+        sp_id = strsplit(fname, {'_'});
+        sp_id = sp_id{contains(sp_id, {'SP'})};
+        sp_id = str2double(strrep(sp_id,'SP',''));
+        config.sp_ID = sp_id;
     else
         % Define Save Point ID As Empty
         config.sp_ID = 1;
