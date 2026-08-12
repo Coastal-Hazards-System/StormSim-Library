@@ -4,7 +4,7 @@ strucType = config.struc_type;
 % Surface roughness coefficient
 gamma_f = structure.roughness_ifactor;
 % Get Berm Logical Flag
-add_berm = config.add_berm;
+add_berm = config.add_toe_berm;
 
 %% GRAB DETAILS FROM "structure"
 % Crest Elevation
@@ -22,7 +22,7 @@ end
 % Compute Freeboard
 Rc = crest_ele - SWL;
 
-if config.add_berm
+if add_berm
     % Berm Elevation (<0 Below Datum Zero)
     berm_elev = structure.berm_elevation; %
     % Berm Width

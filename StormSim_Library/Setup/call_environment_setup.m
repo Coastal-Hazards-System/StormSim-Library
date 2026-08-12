@@ -73,7 +73,7 @@ switch workflow
         config.pros_compute_forcing_HC = 1;
 end
 % Check For Berm
-if config.add_berm == 0 % If No Berm Ensure Fields Are Set To 0
+if config.add_toe_berm == 0 % If No Berm Ensure Fields Are Set To 0
     switch config.struc_type
         case 2
             config.berm_elevation = config.wall_bottom_elevation;
@@ -211,7 +211,7 @@ if exist(config.chs_dependencies,'dir') && ismember(chs_region,region_list)
             adcirc_node_id = SPs(SPs(:,1) == spID, 2);
             % Find Correct Row ID For Bias & Uncertainty
             bias_indx = find(staID(:,2) == adcirc_node_id); % Row INdex For Bias And Uncertainty
-        case {'CHS-TX','CHS-SA','CHS-PR','CHS-NA','CHS-GoM', 'CHS-GLM', 'CHS-GLH'}
+        case {'CHS-TX','CHS-SA','CHS-PR','CHS-NA','CHS-GoM', 'CHS-GLM', 'CHS-GLH', 'CHS-S2G'}
             % Define Load Cases
             load_cases = {'nodeID','staID'};
             % Grab File Names

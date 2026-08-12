@@ -86,7 +86,7 @@ switch struc_type
 end
 
 % Temp Patch (Remove Berm Fields)
-if config.add_berm == 0
+if config.add_toe_berm == 0
     vars_2_grab(contains(vars_2_grab, 'berm')) = [];
 end
 

@@ -15,7 +15,7 @@ function data_out = stormsim_pros_frequency_base(config, structure, data_in, out
     toe_elev   = abs(structure.toe_elevation);
     
     % Berm Logic
-    if config.add_berm
+    if config.add_toe_berm
         berm_elev  = abs(structure.berm_elevation);
         berm_width = structure.berm_width;
         berm_slope = structure.berm_slope;
