@@ -1,4 +1,4 @@
-function [Hmax, hb]=goda_Hmax(Hm0,Ts,Rayleigh_H250,hs,d,Bm,berm_slope_tana,offshore_slope_tana)
+function [Hmax, hb]=goda_Hmax(Hm0,Ts,Rayleigh_H250,hs,d,Bm,berm_slope_tana,offshore_slope_tana,g)
 %{ 
 Goda book page 105, 2000 edition
 Kamphuis irregular wave equation for Hb, Eq 3.34
@@ -22,11 +22,11 @@ Input Definitions:
     toe_dist = distance from structure to berm toe
     b_dist = 5Hm0 distance from structure 
 %} 
-
+Hm0 = Hm0(:);
+Ts = Ts(:);
 hs = hs(:);
 d = d(:);
 Bm=Bm(:);
-g=g(:); 
  
 %%  PREPROCESSING
 % Initialize hb
@@ -66,7 +66,7 @@ hb(hb<0) = 0;
 Lo = g*Ts.^2/2/pi;
 % Compute maximum significant wave height in the surf zone (Depth Limitation)
 %HbonLo(:, 1) = 0.17*(1-exp(-1.5*pi*SPdepth/Lo*(1+15*tanbeta^(4/3)))); %Goda, 1995
-HbonLo(:, 1) = 0.12*(1-exp(-1.5*pi*hb/Lo*(1+11*tan_b_slope^(4/3)))); %Goda, 1995
+HbonLo(:, 1) = 0.12.*(1-exp(-1.5.*pi.*hb./Lo.*(1+11.*tan_b_slope^(4/3)))); %Goda, 1995
 Hb = HbonLo.*Lo;
 % Keep Smallest 
 Hmax = min(Hb, Hm0.*Rayleigh_H250, "omitnan");

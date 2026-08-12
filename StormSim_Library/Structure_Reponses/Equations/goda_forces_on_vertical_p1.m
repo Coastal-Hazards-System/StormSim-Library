@@ -78,7 +78,7 @@ gamma_w = rho_w.*g/32.17405; % Specific weight of water, pcf % ALS changed to im
 %% DEPTH LIMITATION 
 %note that Ts=0.93*Tp for Jonswap with gamma=3.3 but approaches Tp as gamma 
 % increases (spectrum becomes narrower).  So here we assume narrow spectra to be conservative.
-[H_design, hb]=goda_Hmax(Hm0,Ts,design_scale,hs,d,Bm,berm_slope_tana,offshore_slope_tana);
+[H_design, hb]=goda_Hmax(Hm0,Ts,design_scale,hs,d,Bm,berm_slope_tana,offshore_slope_tana, g);
 
 %% COMPUTE WAVE NUMBER
 % Wave length
