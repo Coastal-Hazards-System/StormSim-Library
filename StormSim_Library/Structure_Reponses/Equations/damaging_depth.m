@@ -1,4 +1,4 @@
-function [DamDepthElev,DamDepth]= damaging_depth(SWL,Hm0,Tp,SPdepth,grav,Ks,tanbeta)
+function [DamDepthElev,DamDepth]= damaging_depth(SWL,Hm0,Ts,SPdepth,Ks,hs,d,Bm,berm_slope_tana,offshore_slope_tana, g)
 %{
 LICENSING:
     This code is part of StormSim software suite developed by the U.S. Army
@@ -55,7 +55,14 @@ INPUT/OUTPUT ARGUMENTS:
     Hm0: zero moment significant wave height
     Tp:  peak wave period
     SWL: total water level
-    tanbeta: bottom slope
+ hs      = seaward depth, ft
+    d       = water depth from top of berm, ft
+    B       = width of caisson, ft    
+    gamma_c = specific weight of caisson, pcf
+    Bm      = berm width, ft
+    berm_slope_tana       = Seaward slope of toe berm (tana)   
+    offshore_slope_tana = Seabed slope (tana)
+
     Ks: Shielding parameter
         1 for 0 - 1 rows of buildings
         0.7 for 2 - 3 rows of buildings
@@ -69,16 +76,15 @@ HISTORY OF REVISIONS:
 
 ***************  ALPHA  VERSION  **  FOR INTERNAL TESTING ONLY ************
 %}
-var_shape = size(Tp);
-Ts = Tp(:); %note that Ts=0.93*Tp for Jonswap with gamma=3.3 but approaches Tp as gamma 
+var_shape = size(Ts);
+Ts = Ts(:); %note that Ts=0.93*Tp for Jonswap with gamma=3.3 but approaches Tp as gamma 
 Hm0 = Hm0(:);
 SWL = SWL(:);
 % increases (spectrum becomes narrower).  So here we assume narrow spectra to be conservative.
-Lo = grav*Ts.^2/2/pi;
-HbonLo(:, 1) = 0.17*(1-exp(-1.5*pi*SPdepth/Lo*(1+15*tanbeta^(4/3)))); %Goda, 1995
-Hb = HbonLo.*Lo;
-DamDepthElev = SWL + 0.7 * Ks * min(Hb, 1.6*Hm0, "omitnan");
-DamDepth = DamDepthElev + SPdepth;
+[Hb, ~]=goda_Hmax(Hm0,Ts,1.6,hs,d,Bm,berm_slope_tana,offshore_slope_tana, g);
+
+DamDepthElev = SWL + 0.7 * Ks * Hb;
+DamDepth = DamDepthElev - abs(SPdepth);
 % Resahpe Variables 
 DamDepth = reshape(DamDepth, var_shape);
 DamDepthElev = reshape(DamDepthElev, var_shape);

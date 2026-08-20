@@ -258,7 +258,8 @@ if no_resp~=0
     end
     % Damaging Depth Response
     if calc_dd == 1
-        [Resp.DamDepthElev, Resp.DamDepth]= cellfun(@(x, y, z) damaging_depth(x, y, z, SPdepth, g, calc_dd_ks, offshore_slope_tana), SWL, Hm0, Tp, 'un', false);
+        [Resp.DamDepthElev, Resp.DamDepth]= cellfun(@(x, y, z, a, b) damaging_depth(x, y, z, SPdepth,...
+            calc_dd_ks, a, b, berm_width, berm_slope_tana, offshore_slope_tana, g), SWL, Hm0, Tp, h, hb, 'un', false);
     end
     % Compute Overtopping Volume
     if calc_q_vol == 1 && length(Resp.q{1}(:,1)) > 1
